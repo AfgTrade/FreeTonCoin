@@ -95,6 +95,33 @@
             text-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
+        .wallet-btn {
+            background: linear-gradient(135deg, #00bcd4, #0097a7);
+            border: none;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 188, 212, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            transition: transform 0.2s;
+        }
+
+        .wallet-btn:active {
+            transform: scale(0.98);
+        }
+
+        .wallet-btn img {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+
         .balance-container {
             background: rgba(255, 255, 255, 0.2);
             border-radius: 15px;
@@ -282,6 +309,30 @@
             word-break: break-all;
             font-size: 12px;
         }
+
+        .connected-wallet {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 15px;
+            border-radius: 50px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
+
+        .connected-wallet img {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+
+        .wallet-address {
+            font-family: monospace;
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 150px;
+        }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
@@ -308,6 +359,18 @@
     <div class="header">
         <h1>FREE TON COIN</h1>
         <p>Mine TON coins by tapping</p>
+    </div>
+
+    <button class="wallet-btn" id="walletBtn">
+        <img src="https://ton.org/download/ton_symbol.png" alt="TON">
+        <span>CONNECT WALLET</span>
+    </button>
+
+    <div id="walletInfo" style="display: none;">
+        <div class="connected-wallet">
+            <img src="https://ton.org/download/ton_symbol.png" alt="TON">
+            <span class="wallet-address" id="walletAddress"></span>
+        </div>
     </div>
 
     <div class="balance-container">
@@ -340,6 +403,8 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <!-- TON Connect SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js"></script>
 
     <script>
         // Firebase configuration
@@ -357,9 +422,17 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
+        // Initialize TON Connect
+        const connector = new TonConnect.TonConnect({
+            manifestUrl: 'https://afgtrade.github.io/FreeTonCoin/tonconnect-manifest.json'
+        });
+
         // Get DOM elements
         const menuBtn = document.getElementById('menuBtn');
         const menu = document.getElementById('menu');
+        const walletBtn = document.getElementById('walletBtn');
+        const walletInfo = document.getElementById('walletInfo');
+        const walletAddress = document.getElementById('walletAddress');
         const miningBtn = document.getElementById('miningBtn');
         const withdrawBtn = document.getElementById('withdrawBtn');
         const balanceDisplay = document.getElementById('balance');
@@ -372,6 +445,7 @@
         let energy = 500;
         let lastTapTime = 0;
         let userId = generateUserId();
+        let tonAccount = null;
         const tapReward = 0.00001;
         const minWithdraw = 0.1;
         const maxEnergy = 500;
@@ -380,6 +454,74 @@
         menuBtn.addEventListener('click', () => {
             menu.classList.toggle('active');
         });
+
+        // Initialize TON Connect
+        async function initTonConnect() {
+            // Check if connection is already established
+            if (connector.connected) {
+                tonAccount = connector.account;
+                updateWalletUI();
+            }
+
+            // Subscribe to connection status changes
+            connector.onStatusChange((wallet) => {
+                tonAccount = wallet;
+                updateWalletUI();
+                
+                if (wallet) {
+                    // Save wallet address to Firebase
+                    saveWalletAddress(wallet.address);
+                    showNotification('Wallet connected successfully!');
+                } else {
+                    showNotification('Wallet disconnected');
+                }
+            });
+
+            // Initialize connection
+            await connector.restoreConnection();
+        }
+
+        // Update wallet UI
+        function updateWalletUI() {
+            if (tonAccount) {
+                walletBtn.style.display = 'none';
+                walletInfo.style.display = 'block';
+                walletAddress.textContent = shortenAddress(tonAccount.address);
+                miningBtn.disabled = false;
+            } else {
+                walletBtn.style.display = 'flex';
+                walletInfo.style.display = 'none';
+                miningBtn.disabled = true;
+            }
+        }
+
+        // Shorten wallet address for display
+        function shortenAddress(address) {
+            return address.substring(0, 4) + '...' + address.substring(address.length - 4);
+        }
+
+        // Connect wallet button handler
+        walletBtn.addEventListener('click', async () => {
+            try {
+                const wallets = await connector.getWallets();
+                const walletConnectionSource = {
+                    jsBridgeKey: 'tonconnect'
+                };
+                
+                connector.connect(wallets[0], walletConnectionSource);
+            } catch (err) {
+                console.error('Wallet connection error:', err);
+                showNotification('Error connecting wallet');
+            }
+        });
+
+        // Save wallet address to Firebase
+        function saveWalletAddress(address) {
+            const userRef = database.ref('users/' + userId);
+            userRef.update({
+                walletAddress: address
+            });
+        }
 
         // Initialize user data
         function initUserData() {
@@ -426,7 +568,8 @@
             userRef.set({
                 balance: balance,
                 energy: energy,
-                lastTapTime: lastTapTime
+                lastTapTime: lastTapTime,
+                userId: userId
             });
         }
 
@@ -449,8 +592,8 @@
             energyProgress.style.width = `${(energy / maxEnergy) * 100}%`;
             energyText.textContent = `${energy}/${maxEnergy}`;
             
-            // Disable mining button if no energy
-            miningBtn.disabled = energy <= 0;
+            // Disable mining button if no energy or no wallet connected
+            miningBtn.disabled = energy <= 0 || !tonAccount;
         }
 
         // Show notification
@@ -466,9 +609,9 @@
         // Show referral information
         function showReferral() {
             menu.classList.remove('active');
-            const referralLink = `https://yourwebsite.com?ref=${userId.substring(5)}`;
+            const referralLink = `https://afgtrade.github.io/FreeTonCoin?ref=${userId.substring(5)}`;
             
-            const message = `Coming soon\n\n`;
+            const message = `Invite friends and earn bonuses!\n\nYour referral link:\n${referralLink}`;
             alert(message);
         }
 
@@ -504,6 +647,11 @@
                 return;
             }
             
+            if (!tonAccount) {
+                showNotification('Please connect your wallet first');
+                return;
+            }
+            
             // Add to balance
             balance += tapReward;
             balance = parseFloat(balance.toFixed(8)); // Prevent floating point errors
@@ -531,37 +679,39 @@
 
         // Withdraw button click handler
         withdrawBtn.addEventListener('click', () => {
+            if (!tonAccount) {
+                showNotification('Please connect your wallet first');
+                return;
+            }
+            
             if (balance < minWithdraw) {
                 showNotification(`Minimum withdraw is ${minWithdraw} TON`);
                 return;
             }
             
-            const tonAddress = prompt(`Enter your TON wallet address to withdraw ${balance.toFixed(5)} TON:`);
+            // Save withdraw request to Firebase
+            const withdrawRef = database.ref('withdraws').push();
+            withdrawRef.set({
+                userId: userId,
+                address: tonAccount.address,
+                amount: balance,
+                timestamp: Date.now(),
+                status: 'pending'
+            });
             
-            if (tonAddress && tonAddress.trim() !== '') {
-                // Save withdraw request to Firebase
-                const withdrawRef = database.ref('withdraws').push();
-                withdrawRef.set({
-                    userId: userId,
-                    address: tonAddress.trim(),
-                    amount: balance,
-                    timestamp: Date.now(),
-                    status: 'pending'
-                });
-                
-                // Reset balance
-                balance = 0;
-                saveUserData();
-                updateDisplay();
-                
-                showNotification('Withdraw request submitted!');
-            }
+            // Reset balance
+            balance = 0;
+            saveUserData();
+            updateDisplay();
+            
+            showNotification('Withdraw request submitted!');
         });
 
         // Check energy every minute
         setInterval(checkEnergyReplenish, 60000);
 
         // Initialize the app
+        initTonConnect();
         initUserData();
     </script>
 </body>
