@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="ps">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Telegram Spin Wheel</title>
+    <title>Spin Wheel Rewards</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
             margin: 0;
@@ -155,6 +156,49 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
         
+        .withdraw-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            width: 100%;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        
+        .withdraw-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+        
+        .withdraw-input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .withdraw-input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+        
+        .withdraw-button {
+            background: linear-gradient(to right, #4ecdc4, #44a08d);
+            border: none;
+            border-radius: 50px;
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            width: 100%;
+        }
+        
         .referral-section {
             background: rgba(255, 255, 255, 0.1);
             border-radius: 12px;
@@ -257,21 +301,21 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>سپین ویل انعام</h1>
-            <p>سپین ویل وڅرخوئ او خپل انعام ترلاسه کړئ!</p>
+            <h1>Spin Wheel Rewards</h1>
+            <p>Spin the wheel and win amazing prizes!</p>
         </div>
         
         <div class="user-info">
-            <p>سلام <span id="username">Telegram کارن</span>!</p>
+            <p>Welcome <span id="username">Telegram User</span>!</p>
         </div>
         
         <div class="balance-container">
             <div class="balance-box">
-                <div class="balance-title">ستاسې انعام</div>
+                <div class="balance-title">YOUR BALANCE</div>
                 <div class="balance-amount" id="balance">$0.00</div>
             </div>
             <div class="balance-box">
-                <div class="balance-title">رېفریل تعداد</div>
+                <div class="balance-title">REFERRALS</div>
                 <div class="balance-amount" id="referral-count">0</div>
             </div>
         </div>
@@ -283,21 +327,28 @@
             </div>
         </div>
         
-        <button class="spin-button" id="spin-btn">سپین کړئ</button>
+        <button class="spin-button" id="spin-btn">SPIN WHEEL</button>
+        
+        <div class="withdraw-section">
+            <div class="withdraw-title">WITHDRAW EARNINGS</div>
+            <input type="text" class="withdraw-input" id="ton-address" placeholder="Enter your TON wallet address">
+            <input type="number" class="withdraw-input" id="withdraw-amount" placeholder="Amount (min $1)" min="1" step="0.01">
+            <button class="withdraw-button" id="withdraw-btn">WITHDRAW</button>
+        </div>
         
         <div class="referral-section">
-            <div class="referral-title">خپل رېفریل لینک شریک کړئ</div>
-            <div class="referral-link" id="referral-link">د لینک لپاره انتظار کړئ ...</div>
-            <button class="copy-btn" id="copy-btn">لینک کاپي کړئ</button>
+            <div class="referral-title">SHARE YOUR REFERRAL LINK</div>
+            <div class="referral-link" id="referral-link">Loading link...</div>
+            <button class="copy-btn" id="copy-btn">COPY LINK</button>
         </div>
     </div>
     
     <div class="prize-popup" id="prize-popup">
         <div class="popup-content">
-            <h2>مبارک شه!</h2>
-            <p>تاسو ګټلی:</p>
+            <h2>Congratulations!</h2>
+            <p>You won:</p>
             <div class="prize-amount" id="prize-amount">$0.01</div>
-            <button class="close-popup" id="close-popup">د ښه</button>
+            <button class="close-popup" id="close-popup">OK</button>
         </div>
     </div>
 
@@ -310,10 +361,11 @@
         // User data
         let user = {
             id: null,
-            username: 'Telegram کارن',
+            username: 'Telegram User',
             balance: 0,
             referralCount: 0,
-            referralLink: ''
+            referralLink: '',
+            hasReceivedJoinBonus: false
         };
         
         // Prize amounts for the wheel
@@ -328,10 +380,13 @@
             if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
                 const tgUser = tg.initDataUnsafe.user;
                 user.id = tgUser.id;
-                user.username = tgUser.username || `${tgUser.first_name || ''} ${tgUser.last_name || ''}`.trim() || 'Telegram کارن';
+                user.username = tgUser.username || `${tgUser.first_name || ''} ${tgUser.last_name || ''}`.trim() || 'Telegram User';
                 
                 // Generate referral link
                 user.referralLink = `https://t.me/MiniAppTest66_Bot?start=${user.id}`;
+                
+                // Check if user is referred by someone
+                checkReferral();
                 
                 // In a real app, you would fetch user data from your backend here
                 simulateUserDataFetch();
@@ -339,8 +394,8 @@
                 // Fallback for testing outside Telegram
                 user.id = 123456789;
                 user.username = 'Test User';
-                user.balance = 5.00; // Initial bonus
-                user.referralCount = 0;
+                user.balance = 0;
+                user.referralCount = 3;
                 user.referralLink = `https://t.me/MiniAppTest66_Bot?start=${user.id}`;
                 
                 updateUI();
@@ -350,15 +405,31 @@
             setupEventListeners();
         }
         
+        // Check if user was referred by someone
+        function checkReferral() {
+            // In a real app, you would check the start parameter from Telegram
+            // For demonstration, we'll assume no referral for now
+        }
+        
         // Simulate fetching user data from backend
         function simulateUserDataFetch() {
             // In a real app, you would make a request to your backend
             // For now, we'll simulate it with a timeout
             
             setTimeout(() => {
-                // Simulated response
-                user.balance = 5.00; // Initial bonus for joining
-                user.referralCount = 3; // Example referral count
+                // Check if user is new and should receive join bonus
+                const isNewUser = !user.hasReceivedJoinBonus;
+                
+                if (isNewUser) {
+                    user.balance += 5.00; // $5 join bonus
+                    user.hasReceivedJoinBonus = true;
+                    
+                    // Show join bonus notification
+                    alert('Congratulations! You received a $5.00 joining bonus!');
+                }
+                
+                // Simulated referral count
+                user.referralCount = 3;
                 
                 updateUI();
             }, 500);
@@ -447,14 +518,47 @@
             document.getElementById('prize-popup').style.display = 'none';
         }
         
+        // Handle withdrawal
+        function handleWithdrawal() {
+            const tonAddress = document.getElementById('ton-address').value;
+            const amount = parseFloat(document.getElementById('withdraw-amount').value);
+            
+            if (!tonAddress) {
+                alert('Please enter your TON wallet address');
+                return;
+            }
+            
+            if (isNaN(amount) || amount < 1) {
+                alert('Minimum withdrawal amount is $1');
+                return;
+            }
+            
+            if (amount > user.balance) {
+                alert('Insufficient balance');
+                return;
+            }
+            
+            // Process withdrawal
+            user.balance -= amount;
+            updateUI();
+            
+            alert(`Withdrawal request for $${amount.toFixed(2)} to ${tonAddress} has been processed!`);
+            
+            // Clear inputs
+            document.getElementById('ton-address').value = '';
+            document.getElementById('withdraw-amount').value = '';
+            
+            // In a real app, you would send this request to your backend
+        }
+        
         // Copy referral link to clipboard
         function copyReferralLink() {
             navigator.clipboard.writeText(user.referralLink).then(() => {
                 const copyBtn = document.getElementById('copy-btn');
-                copyBtn.textContent = 'کاپي شو!';
+                copyBtn.textContent = 'COPIED!';
                 
                 setTimeout(() => {
-                    copyBtn.textContent = 'لینک کاپي کړئ';
+                    copyBtn.textContent = 'COPY LINK';
                 }, 2000);
             });
         }
@@ -463,6 +567,7 @@
         function setupEventListeners() {
             document.getElementById('spin-btn').addEventListener('click', spinWheel);
             document.getElementById('close-popup').addEventListener('click', closePrizePopup);
+            document.getElementById('withdraw-btn').addEventListener('click', handleWithdrawal);
             document.getElementById('copy-btn').addEventListener('click', copyReferralLink);
         }
         
