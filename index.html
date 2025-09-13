@@ -1,66 +1,81 @@
 <!DOCTYPE html>
-<html lang="ps">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AdsGram Integration</title>
-  <style>
-    body { font-family: Arial, sans-serif; background:#f9fafb; text-align:center; padding:30px; }
-    h2 { color:#111; }
-    .btn {
-      background:#1b6ef6;
-      color:#fff;
-      padding:12px 20px;
-      border:none;
-      border-radius:8px;
-      cursor:pointer;
-      font-size:16px;
-      margin-top:15px;
-    }
-    .ad-box {
-      margin-top:200px;
-      border:2px dashed #ccc;
-      border-radius:10px;
-      padding:20px;
-      height:1500px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      color:#777;
-    }
-  </style>
+  <title>Airdrop Referral</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
-
-  <h2>🟢 AdsGram حقیقي اعلان</h2>
-  <p>Zone ID: <b>13059</b></p>
-
-  <button class="btn" onclick="showAdsGramAd()">اعلان ښکاره کړه</button>
-
-  <div id="adsArea" class="ad-box">
-    دلته به اعلان ښکاره شي
-  </div>
-
-  <!-- AdsGram SDK -->
-  <script src="https://adsgram.io/sdk.js"
-          data-zone="13059"
-          data-token="ef26bdbd6e2546b396dea41bdcfbbeff"></script>
+  <h2>🎁 Airdrop Balance</h2>
+  <p id="balance">Loading...</p>
 
   <script>
-    function showAdsGramAd() {
-      try {
-        if (window.adsgram) {
-          adsgram.show(); // د SDK له لارې اعلان ښکاره کول
-        } else {
-          // fallback که SDK پورته نشو
-          document.getElementById('adsArea').innerHTML =
-            '<iframe src="https://adsgram.io/?zone=13059&token=ef26bdbd6e2546b396dea41bdcfbbeff" style="width:100%;height:100%;border:0;"></iframe>';
-        }
-      } catch (e) {
-        console.error("Ad error:", e);
-      }
-    }
-  </script>
+    // --- Firebase Config ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyD4UbW_Iy4kUWH3V70Q1mWCI4-_KFk6ku4",
+      authDomain: "onlinewark-a0147.firebaseapp.com",
+      databaseURL: "https://onlinewark-a0147-default-rtdb.firebaseio.com",
+      projectId: "onlinewark-a0147",
+      storageBucket: "onlinewark-a0147.appspot.com",
+      messagingSenderId: "92155538620",
+      appId: "1:92155538620:android:5e198a8eea6bf17f61f4b9"
+    };
 
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // --- Telegram User ---
+    const tg = window.Telegram.WebApp;
+    const user = tg.initDataUnsafe.user;
+    const userId = user.id.toString();
+
+    // --- Referral Parameter ---
+    const refParam = tg.initDataUnsafe.start_param;
+    let referrerId = null;
+    if (refParam && refParam.startsWith("ref_")) {
+      referrerId = refParam.split("_")[1];
+    }
+
+    // --- Init User ---
+    async function initUser() {
+      const userRef = db.ref("users/" + userId);
+
+      userRef.once("value", async (snapshot) => {
+        if (!snapshot.exists()) {
+          // نوی یوزر - جوړول
+          await userRef.set({
+            points: 0,
+            referrals: {}
+          });
+
+          // که د ریف لینک له لارې راغلی وي
+          if (referrerId && referrerId !== userId) {
+            const refRef = db.ref("users/" + referrerId + "/points");
+            refRef.transaction((current) => {
+              return (current || 0) + 2; // 🎁 ۲ کوین ورکول
+            });
+
+            // ریفریل لست کې نوی یوزر اضافه کول
+            const refList = db.ref("users/" + referrerId + "/referrals");
+            refList.update({ [userId]: true });
+          }
+        }
+        loadBalance();
+      });
+    }
+
+    // --- Load Balance ---
+    function loadBalance() {
+      const userRef = db.ref("users/" + userId + "/points");
+      userRef.on("value", (snapshot) => {
+        document.getElementById("balance").innerText =
+          `💰 Your Balance: ${snapshot.val() || 0} Coins`;
+      });
+    }
+
+    initUser();
+  </script>
 </body>
 </html> 
